@@ -1,14 +1,10 @@
 /* jshint node:true */
 'use strict';
 
-var User = require('../models/user');
 var errorHandler = require('../error-handler');
 var i18n = require('i18next');
-var crypto = require('crypto');
-var sendEmail = require('../send-email');
 var config = require('../../config/config');
-
-var ONE_HOUR = 3600000;
+var userClient = require('../clients/user-client');
 
 function renderResetPassword(res, locals) {
   locals = locals || {};
@@ -16,39 +12,16 @@ function renderResetPassword(res, locals) {
   res.render('reset-password', locals);
 }
 
-function sendPasswordResetEmail(req, user) {
-  crypto.randomBytes(20, function (err, buffer) {
-    var token = buffer.toString('hex');
-
-    user.resetPasswordToken = token;
-    user.resetPasswordExpires = Date.now() + ONE_HOUR;
-
-    user.save(function (err, user) {
-      if (!err && user) {
-        sendEmail({
-          templateName: 'reset-password-email',
-          to: user.email,
-          subject: i18n.t('email.resetPassword.subject'),
-          locals: {
-            username: user.username,
-            url: 'http://' + req.headers.host +
-              '/reset/' + user.resetPasswordToken,
-            siteName: config.app.title
-          }
-        });
-      }
-    });
-  });
-}
-
 exports.get = function (req, res, next) {
   renderResetPassword(res);
 };
 
 exports.post = function (req, res, next) {
-  User.findOne({
-    email: req.body.email.toLowerCase()
-  }, function (err, user) {
+  userClient.resetPasswordByEmail({
+    email: req.body.email,
+    host: req.headers.host,
+    appTitle: config.app.title
+  }, function (err, info) {
     if (err) {
       return renderResetPassword(res, {
         messages: {
@@ -57,20 +30,10 @@ exports.post = function (req, res, next) {
       });
     }
 
-    if (!user) {
-      return renderResetPassword(res, {
-        messages: {
-          error: 'There is no user with such email in our system'
-        }
-      });
-    }
-
-    sendPasswordResetEmail(req, user);
-
     return renderResetPassword(res, {
       messages: {
         success: i18n.t('account.password.emailSent', {
-          email: user.email
+          email: req.body.email
         })
       }
     });
@@ -78,19 +41,15 @@ exports.post = function (req, res, next) {
 };
 
 exports.validateResetToken = function (req, res) {
-  User.findOne({
-    resetPasswordToken: req.params.token,
-    resetPasswordExpires: {
-      $gt: Date.now()
-    }
-  }, function (err, user) {
-    if (err || !user) {
-      renderResetPassword(res, {
+  userClient.validateResetToken({
+    token: req.params.token
+  }, function (err) {
+    if (err) {
+      return renderResetPassword(res, {
         messages: {
           error: i18n.t('account.password.invalidResetToken')
         }
       });
-      return;
     }
 
     res.render('password/new');
@@ -100,11 +59,17 @@ exports.validateResetToken = function (req, res) {
 exports.newPassword = function (req, res) {
   var passwordDetails = req.body;
 
-  User.findOne({
-    resetPasswordToken: req.params.token,
-    resetPasswordExpires: {
-      $gt: Date.now()
-    }
+  if (passwordDetails.newPassword !== passwordDetails.repeatPassword) {
+    return res.render('password/new', {
+      messages: {
+        error: i18n.t('account.password.passwordsDoNotMatch')
+      }
+    });
+  }
+
+  userClient.resetPassword({
+    token: req.params.token,
+    newPassword: passwordDetails.newPassword
   }, function (err, user) {
     if (err || !user) {
       return renderResetPassword(res, {
@@ -114,56 +79,16 @@ exports.newPassword = function (req, res) {
       });
     }
 
-    if (passwordDetails.newPassword === passwordDetails.repeatPassword) {
-      user.resetPasswordToken = undefined;
-      user.resetPasswordExpires = undefined;
-
-      user.setPassword(passwordDetails.newPassword, function (err, user) {
-        if (err || !user) {
-          res.render('password/new', {
-            messages: {
-              error: i18n.t('account.password.unknownError')
-            }
-          });
-          return;
-        }
-
-        user.save(function (err) {
-          if (err) {
-            return res.render('password/new', {
-              messages: {
-                error: i18n.t('account.password.unknownError')
-              }
-            });
+    req.login(user, function (err) {
+      if (err) {
+        return res.render('password/new', {
+          messages: {
+            error: errorHandler.getErrorMessage(err)
           }
-          req.login(user, function (err) {
-            if (err) {
-              return res.render('password/new', {
-                messages: {
-                  error: errorHandler.getErrorMessage(err)
-                }
-              });
-            } else {
-              sendEmail({
-                templateName: 'reset-password-confirm-email',
-                to: user.email,
-                subject: i18n.t('email.resetPasswordConfirm.subject'),
-                locals: {
-                  username: user.username
-                }
-              });
-
-              return res.redirect('/');
-            }
-          });
         });
-      });
-    } else {
-      res.render('password/new', {
-        messages: {
-          error: i18n.t('account.password.passwordsDoNotMatch')
-        }
-      });
-    }
+      }
+
+      return res.redirect('/');
+    });
   });
 };

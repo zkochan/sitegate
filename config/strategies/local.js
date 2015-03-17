@@ -1,13 +1,16 @@
-/* jshint node:true */
 'use strict';
 
-/**
- * Module dependencies.
- */
 var passport = require('passport');
-var User = require('../../app/models/user');
+var LocalStrategy = require('passport-local').Strategy;
+var userClient = require('../../app/clients/user-client');
 
 module.exports = function () {
-  // Use local strategy
-  passport.use(User.createStrategy());
+  passport.use(new LocalStrategy(
+    function (username, password, done) {
+      userClient.authenticate({
+        usernameOrEmail: username,
+        password: password
+      }, done);
+    }
+  ));
 };

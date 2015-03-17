@@ -1,10 +1,9 @@
 /* jshint node:true */
 'use strict';
 
-var User = require('../models/user');
+var userClient = require('../clients/user-client');
 var config = require('../../config/config');
 var i18n = require('i18next');
-var sendVerificationEmail = require('../send-verification-email');
 
 function renderSignUp(res, locals) {
   locals = locals || {};
@@ -21,14 +20,14 @@ exports.get = function (req, res, next) {
  * Signup
  */
 exports.post = function (req, res, next) {
-  var user = new User(req.body);
+  var user = req.body;
 
   // Add missing user fields
   user.provider = 'local';
   user.displayName = user.firstName + ' ' + user.lastName;
   user.emailVerified = false;
 
-  User.register(user, req.body.password, function (err, user) {
+  userClient.register(user, function (err, user) {
     if (err) {
       return renderSignUp(res, {
         username: req.body.username,
@@ -44,7 +43,7 @@ exports.post = function (req, res, next) {
       if (err) {
         return res.status(400).send(err);
       }
-      sendVerificationEmail(req, user);
+      
       return require('../go-callback')(req, res, next);
     });
   });

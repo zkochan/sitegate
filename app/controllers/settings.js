@@ -2,19 +2,20 @@
 'use strict';
 
 var config = require('../../config/config');
-var User = require('../models/user');
 var errorHandler = require('../error-handler');
 var i18n = require('i18next');
-var sendVerificationEmail = require('../send-verification-email');
+var userClient = require('../clients/user-client');
 
 exports.profile = function (req, res, next) {
-  res.render('settings/profile', {
-    user: req.user,
-    homepageUrl: config.sitegateClient.domain +
-      config.sitegateClient.privateHomepage,
-    messages: {
-      success: req.flash('profileSuccessMessages')
-    }
+  userClient.getById(req.user.id, function (err, user) {
+    res.render('settings/profile', {
+      user: req.user,
+      homepageUrl: config.sitegateClient.domain +
+        config.sitegateClient.privateHomepage,
+      messages: {
+        success: req.flash('profileSuccessMessages')
+      }
+    });
   });
 };
 
@@ -23,55 +24,34 @@ exports.updateProfile = function (req, res, next) {
     username: req.body['user.username'],
     email: req.body['user.email']
   };
-  User.findById(req.user.id, function (err, user) {
-    if (!err && user) {
-      user.username = req.body['user.username'];
-
-      var newEmail = req.body['user.email'] ? req.body['user.email'].toLowerCase() : null;
-      var emailHasBeenUpdated = newEmail && (newEmail !== user.email);
-
-      user.email = newEmail;
-      if (emailHasBeenUpdated) {
-        user.emailVerified = false;
-      }
-
-      user.save(function (err) {
+  userClient.update({
+    id: req.user.id,
+    username: req.body['user.username'],
+    email: req.body['user.email']
+  }, function (err, user, info) {
+    if (err) {
+      res.render('settings/profile', {
+        user: userToReturn,
+        messages: {
+          error: errorHandler.getErrorMessage(err)
+        }
+      });
+    } else {
+      req.login(user, function (err) {
         if (err) {
-          res.render('settings/profile', {
+          return res.render('settings/profile', {
             user: userToReturn,
             messages: {
               error: errorHandler.getErrorMessage(err)
             }
           });
-        } else {
-          if (emailHasBeenUpdated) {
-            sendVerificationEmail(req, user);
+        }
+        return res.render('settings/profile', {
+          user: userToReturn,
+          messages: {
+            success: 'Profile was updated' + (info.emailHasBeenUpdated ? 'Verification email was sent' : '')
           }
-          req.login(user, function (err) {
-            if (err) {
-              res.render('settings/profile', {
-                user: userToReturn,
-                messages: {
-                  error: errorHandler.getErrorMessage(err)
-                }
-              });
-            } else {
-              return res.render('settings/profile', {
-                user: userToReturn,
-                messages: {
-                  success: 'Profile was updated' + (emailHasBeenUpdated ? 'Verification email was sent' : '')
-                }
-              });
-            }
-          });
-        }
-      });
-    } else {
-      res.render('settings/profile', {
-        user: userToReturn,
-        messages: {
-          error: 'User is not found'
-        }
+        });
       });
     }
   });
@@ -102,89 +82,66 @@ exports.password = function (req, res, next) {
   renderPasswordPage(req, res);
 };
 
-function saveNewPassword(req, res, passwordDetails, err, user, info) {
-  if (!err && user) {
-    if (passwordDetails.newPassword === passwordDetails.verifyPassword) {
-      user.setPassword(passwordDetails.newPassword, function (err, user) {
-        if (err) {
-          return renderPasswordPage(req, res, {
-            messages: {
-              error: i18n.t('account.password.unknownError')
-            }
-          });
-        }
-
-        user.save(function (err) {
-          if (err) {
-            return res.status(400).send({
-              message: errorHandler.getErrorMessage(err)
-            });
-          } else {
-            req.login(user, function (err) {
-              if (err) {
-                res.status(400).send(err);
-              } else {
-                return renderPasswordPage(req, res, {
-                  messages: {
-                    success: req.i18n.t('settings.passwordChangedSuccessfully')
-                  }
-                });
-              }
-            });
-          }
-        });
-      });
-    } else {
-      res.status(400).send({
-        message: i18n.t('account.password.passwordsDoNotMatch')
-      });
-    }
-  } else {
-    return renderPasswordPage(req, res, {
-      messages: {
-        error: req.i18n.t('settings.currentPasswordIsIncorrect')
-      }
-    });
-  }
-}
-
 exports.changePassword = function (req, res) {
   // Init Variables
   var passwordDetails = req.body;
 
-  if (req.user) {
-    if (passwordDetails.newPassword) {
-      User.findById(req.user.id, function (err, user) {
-        if (!err && user) {
-          if (typeof user.hash === 'undefined') {
-            saveNewPassword(req, res, passwordDetails, err, user);
-          } else {
-            user.authenticate(passwordDetails.currentPassword, function (err, user, info) {
-              saveNewPassword(req, res, passwordDetails, err, user, info);
-            });
-          }
-        } else {
-          res.status(400).send({
-            message: 'User is not found'
-          });
-        }
-      });
-    } else {
-      res.status(400).send({
-        message: 'Please provide a new password'
-      });
-    }
-  } else {
-    res.status(400).send({
+  if (!req.user) {
+    return res.status(400).send({
       message: 'User is not signed in'
     });
   }
+
+  if (!passwordDetails.newPassword) {
+    return res.status(400).send({
+      message: 'Please provide a new password'
+    });
+  }
+
+  if (passwordDetails.newPassword !== passwordDetails.verifyPassword) {
+    return res.status(400).send({
+      message: i18n.t('account.password.passwordsDoNotMatch')
+    });
+  }
+
+  userClient.changePassword({
+    userId: req.user.id,
+    currentPassword: passwordDetails.currentPassword,
+    newPassword: passwordDetails.newPassword
+  }, function (err, user) {
+    if (err) {
+      return renderPasswordPage(req, res, {
+        messages: {
+          error: req.i18n.t('settings.password.' + err.type || 'unknown')
+        }
+      });
+    }
+
+    req.login(user, function (err) {
+      if (err) {
+        return res.status(400).send(err);
+      }
+      return renderPasswordPage(req, res, {
+        messages: {
+          success: req.i18n.t('settings.passwordChangedSuccessfully')
+        }
+      });
+    });
+  });
 };
 
 exports.resendEmailVerification = function (req, res) {
-  sendVerificationEmail(req, req.user);
+  userClient.sendVerificationEmail({
+    userId: req.user._id,
+    host: req.headers.host,
+    appTitle: config.app.title
+  }, function (err) {
+    if (err) {
+      return res.status(400);
+    }
 
-  res.status(200).send({
-    message: 'Verification has been sent out'
+    return res.status(200).send({
+      message: 'Verification has been sent out'
+    });
   });
 };

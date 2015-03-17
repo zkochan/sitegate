@@ -79,25 +79,5 @@
     "currentPassword": "Current password",
     "passwordChangedSuccessfully": "Password changed successfully",
     "currentPasswordIsIncorrect": "Current password is incorrect"
-  },
-  "email": {
-    "shared": {
-      "hiUser": "Hi __username__"
-    },
-    "emailVerification": {
-      "subject": "Email Verification",
-      "welcometToSite": "Welcome to __siteName__",
-      "confirmEmail": "Confirm Email"
-    },
-    "resetPassword": {
-      "subject": "Password Reset",
-      "youHaveRequested": "You have requested to have your password reset for your account at __siteName__",
-      "pleaseVisitThisUrl": "Please visit this url to reset your password:",
-      "ifYouDidnt": "If you didn't make this request, you can ignore this email."
-    },
-    "resetPasswordConfirm": {
-      "subject": "Your password has been changed",
-      "thisIsConfirmation": "This is a confirmation that the password for your account has just been changed"
-    }
   }
 }

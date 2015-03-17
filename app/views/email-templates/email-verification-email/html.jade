@@ -1,6 +1,0 @@
-extends ../layout.jade
-
-block content
-  h1= t("email.shared.hiUser", { username: username })
-  p= t("email.emailVerification.welcometToSite", { siteName: 'SiteGate' })
-  a(href=confirmationUrl)= t("email.emailVerification.confirmEmail")

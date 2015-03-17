@@ -1,7 +1,6 @@
 'use strict';
 
 var config = require('./config/config');
-var glob = require('glob');
 var mongoose = require('mongoose');
 var https = require('https');
 var fs = require('fs');
@@ -13,6 +12,9 @@ var db = mongoose.connect(config.db, function (err) {
     console.log(err);
   }
 });
+
+// Bootstrap bograch config
+require('./config/bograch');
 
 var app = require('./config/express')(db);
 

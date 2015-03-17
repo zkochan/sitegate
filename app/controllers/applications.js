@@ -2,23 +2,22 @@
 
 var i18n = require('i18next');
 var uid = require('../helpers/uid');
-var Client = require('../models/client');
+var clientClient = require('../clients/client-client');
+var userClient = require('../clients/user-client');
 
 exports.applications = function (req, res) {
-  Client.find({
-    userId: req.user._id
+  clientClient.findByCreatorId({
+    userId: req.user.id
   }, function (err, clients) {
     if (err) {
       //
     }
-
+    
     var userClients = clients;
-
-    Client.find({
-      _id: {
-        $in: req.user.trustedClients
-      }
-    }, function (err, clients) {
+        
+    userClient.getTrustedClients({
+      userId: req.user.id
+    }, function (err, clients) {      
       res.render('settings/applications', {
         title: i18n.t('app.apps'),
         trustedClients: clients,
@@ -33,71 +32,77 @@ exports.getNewApplication = function (req, res) {
 };
 
 exports.postNewApplication = function (req, res) {
-  var client = new Client();
-
-  client.name = req.body.name;
-  client.description = req.body.description;
-  client.homepageUrl = req.body.homepageUrl;
-  client.authCallbackUrl = req.body.authCallbackUrl;
-  client.id = uid(20);
-  client.secret = uid(40);
-  client.userId = req.user._id;
-
-  client.save(function (err) {
-    if (err) {
-      res.send(err);
-    }
-
-    res.redirect('/settings/applications/' + client._id);
-  });
-};
-
-exports.getApplication = function (req, res) {
-  Client.findOne({
-    userId: req.user._id,
-    _id: req.params.id
-  }, function (err, client) {
-    if (err) {
-      res.send(err);
-    }
-
-    res.render('settings/applications-edit', client);
-  });
-};
-
-exports.postApplication = function (req, res) {
-  Client.findOne({
-    _id: req.params.id
+  clientClient.create({
+    name: req.body.name,
+    description: req.body.description,
+    homepageUrl: req.body.homepageUrl,
+    authCallbackUrl: req.body.authCallbackUrl,
+    userId: req.user._id
   }, function (err, client) {
     if (err) {
       return res.send(err);
     }
 
-    if (client.userId !== req.user._id.toString()) {
-      return res.send('You cannot edit a client that was not created by you!');
+    return res.redirect('/settings/applications/' + client._id);
+  });
+};
+
+exports.getApplication = function (req, res) {
+  clientClient.getById({
+    id: req.params.id
+  }, function (err, client) {
+    if (err) {
+      return res.send(err);
     }
 
-    client.name = req.body.name;
-    client.description = req.body.description;
-    client.homepageUrl = req.body.homepageUrl;
-    client.authCallbackUrl = req.body.authCallbackUrl;
+    if (client.userId !== req.user.id) {
+      return res.send('You cannot view an app that was created by another user');
+    }
 
-    client.save(function (err) {
-      if (err) {
-        return res.send(err);
-      }
+    return res.render('settings/applications-edit', client);
+  });
+};
 
-      res.redirect('/settings/applications');
-    });
+exports.postApplication = function (req, res) {
+  clientClient.update({
+    clientId: req.params.id,
+    name: req.body.name,
+    description: req.body.description,
+    homepageUrl: req.body.homepageUrl,
+    authCallbackUrl: req.body.authCallbackUrl
+  }, function (err, client) {
+    if (err) {
+      return res.send(err);
+    }
+
+    return res.redirect('/settings/applications');
   });
 };
 
 exports.deleteApplication = function (req, res) {
-  Client.findByIdAndRemove(req.params.id, function (err) {
+  clientClient.getById({
+    id: req.params.id
+  }, function (err, client) {
     if (err) {
       return res.status(400).send(err);
     }
-    return res.status(200).send('Success');
+
+    if (!client) {
+      return res.status(400).send('client not found');
+    }
+
+    if (client.userId !== req.user.id) {
+      return res.status(400).send('Only the creator can remove a client');
+    }
+
+    clientClient.remove({
+      clientId: req.params.id
+    }, function (err) {
+      if (err) {
+        return res.status(400).send(err);
+      }
+      return res.status(200).send('Success');
+    });
   });
 };
 
@@ -122,8 +127,8 @@ exports.postRevokeAll = function (req, res) {
 };
 
 exports.getConnection = function (req, res) {
-  Client.findOne({
-    _id: req.params.id
+  clientClient.getById({
+    id: req.params.id
   }, function (err, client) {
     if (err) {
       //
