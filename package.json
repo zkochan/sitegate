@@ -63,6 +63,6 @@
     "gulp-nodemon": "^2.0.4",
     "istanbul": "^0.4.2",
     "mocha": "^2.3.4",
-    "supertest": "^1.1.0"
+    "supertest": "^2.0.0"
   }
 }
