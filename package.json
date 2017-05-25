@@ -35,7 +35,7 @@
     "hexi-validate": "0.0.1",
     "hexi-vtree": "0.0.0",
     "hyperscript-helpers": "^2.0.3",
-    "i18next": "^1.10.4",
+    "i18next": "^3.3.0",
     "jimbo-client": "0.0.5",
     "joi": "^7.0.1",
     "oauth2orize": "^1.2.1",
