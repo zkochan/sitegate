@@ -48,7 +48,7 @@
     "passport-oauth2-client-password": "^0.1.2",
     "passport-twitter": "^1.0.3",
     "plugiator": "^0.1.1",
-    "ramda": "^0.21.0",
+    "ramda": "^0.22.1",
     "vdom-to-html": "^2.2.0",
     "virtual-dom": "^2.1.1",
     "vtag": "^0.1.0",
