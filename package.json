@@ -37,7 +37,7 @@
     "hyperscript-helpers": "^3.0.1",
     "i18next": "^1.10.4",
     "jimbo-client": "0.0.5",
-    "joi": "^9.0.2",
+    "joi": "^10.2.1",
     "oauth2orize": "^1.2.1",
     "passport": "^0.3.2",
     "passport-facebook": "^2.0.0",
