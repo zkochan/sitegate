@@ -26,7 +26,7 @@
     "boom": "^5.0.0",
     "connect-flash": "^0.1.1",
     "connect-redis": "^3.0.2",
-    "convict": "1.0.1",
+    "convict": "1.4.0",
     "express": "^4.13.4",
     "express-session": "^1.13.0",
     "hexi": "^0.8.1",
