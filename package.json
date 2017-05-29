@@ -58,7 +58,7 @@
     "chai": "^4.0.0",
     "coveralls": "^2.11.6",
     "gulp": "^3.9.0",
-    "gulp-hub": "^0.7.1",
+    "gulp-hub": "^4.1.0",
     "gulp-livereload": "^3.8.1",
     "gulp-nodemon": "^2.0.4",
     "istanbul": "^0.4.2",
